@@ -277,19 +277,20 @@ function gen(){
 async function dlHTML(){
   if(!PD.length)return;
   const btn=document.getElementById('btn-dl');
-  btn.classList.add('dis');
   const usedKeys=[...new Set(PD.map(p=>getImgKey(p)).filter(Boolean))];
   const toConvert=usedKeys.filter(k=>PM[k]&&PM[k].file);
   const b64map={};
   const total=toConvert.length;
-  for(let i=0;i<toConvert.length;i++){
-    btn.textContent=`讀取中 ${i+1}/${total}`;
-    const k=toConvert[i];
-    const r=await readFileB64(PM[k].file);
-    if(r) b64map[k]=r;
+  // Batch compress: 8 at a time to avoid blocking UI
+  const BATCH=8;
+  for(let i=0;i<toConvert.length;i+=BATCH){
+    btn.textContent=`壓縮中 ${Math.min(i+BATCH,total)}/${total}`;
+    const batch=toConvert.slice(i,i+BATCH);
+    await Promise.all(batch.map(async k=>{
+      const r=await compressImage(PM[k].file,300,0.7); if(r) b64map[k]=r;
+    }));
   }
-  btn.textContent='↓ 下載 HTML';
-  btn.classList.remove('dis');
+  btn.textContent='↓ 下載 HTML'; btn.classList.remove('dis');
   finishDl(b64map);
 }
 function finishDl(b64map){
