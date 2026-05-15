@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品 DM 對照表產生器</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#f0ede8;--sur:#fff;--bdr:#e0dbd3;--acc:#1a1a1a;--mu:#888;--red:#c0392b;--font:'Noto Sans TC','Microsoft JhengHei',sans-serif;}
+body{font-family:var(--font);background:var(--bg);color:var(--acc);min-height:100vh;}
+header{background:var(--acc);color:#fff;padding:13px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+header h1{font-size:14px;font-weight:500;letter-spacing:2px;}
+.hbtn{padding:7px 16px;font-size:12px;font-family:var(--font);font-weight:500;border-radius:5px;cursor:pointer;border:none;letter-spacing:1px;transition:opacity .15s;}
+.hbtn:hover{opacity:.8;}.hbtn-o{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;}
+.hbtn-w{background:#fff;color:var(--acc);}
+.dis{opacity:.3;pointer-events:none;}
+
+.app{display:flex;height:calc(100vh - 52px);}
+.side{width:300px;min-width:300px;background:var(--sur);border-right:1px solid var(--bdr);overflow-y:scroll;padding:18px;display:flex;flex-direction:column;gap:12px;}
+.card{border:1px solid var(--bdr);border-radius:10px;overflow:hidden;}
+.card-h{background:#f8f7f4;padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bdr);}
+.card-n{width:20px;height:20px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.card-t{font-size:13px;font-weight:500;}
+.card-b{padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+.note{font-size:11px;color:var(--mu);line-height:1.7;}
+.note b{color:var(--acc);}
+.uz{border:1.5px dashed var(--bdr);border-radius:8px;padding:10px;cursor:pointer;text-align:center;transition:border-color .2s,background .2s;display:block;}
+.uz:hover{border-color:var(--acc);background:#f8f7f4;}
+.ok-st{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#d4f5e2;color:#1a6b3a;border-radius:6px;font-size:12px;font-weight:500;margin-top:4px;}
+.er-st{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fde8e8;color:#9b1c1c;border-radius:6px;font-size:12px;margin-top:4px;}
+.dbg{font-size:10px;color:var(--mu);background:#f8f7f4;border-radius:5px;padding:7px;margin-top:5px;line-height:1.8;word-break:break-all;display:none;}
+label.fl{font-size:11px;color:var(--mu);display:block;margin-bottom:3px;}
+select{width:100%;padding:6px 8px;font-size:12px;font-family:var(--font);border:1px solid var(--bdr);border-radius:6px;background:#fafafa;color:var(--acc);}
+.gen-btn{width:100%;padding:11px;background:var(--acc);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;font-family:var(--font);}
+.gen-btn:hover{opacity:.8;}.gen-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+/* preview */
+.prev-wrap{flex:1;overflow:auto;background:#aaa;padding:20px;display:flex;align-items:flex-start;justify-content:center;}
+#dm-wrap{background:var(--sur);min-width:600px;max-width:1200px;width:100%;padding:20px;box-shadow:0 4px 20px rgba(0,0,0,.15);}
+.dm-title{text-align:center;font-size:18px;font-weight:700;letter-spacing:3px;margin-bottom:18px;color:var(--acc);}
+.dm-grid{display:grid;gap:10px;}
+.dm-cols-3{grid-template-columns:repeat(3,1fr);}
+.dm-cols-4{grid-template-columns:repeat(4,1fr);}
+.dm-cols-5{grid-template-columns:repeat(5,1fr);}
+
+/* product card */
+.pc{border:1px solid #ddd;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:10px 8px 8px;page-break-inside:avoid;}
+.pc-photo{width:100%;height:130px;position:relative;background:#fafafa;border-radius:5px;margin-bottom:6px;overflow:hidden;}
+.pc-photo img{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);max-width:calc(100% - 4px);max-height:126px;width:auto;height:auto;}
+.pc-noimg{font-size:10px;color:#ccc;}
+.pc-bc{width:100%;display:flex;justify-content:center;margin-bottom:3px;}
+.pc-bc svg{max-width:100%;}
+.pc-info{width:100%;font-size:10px;border-top:1px solid #f0f0f0;padding-top:5px;margin-top:1px;}
+.pc-info table{width:100%;border-collapse:collapse;}
+.pc-info td{padding:1px 2px;vertical-align:top;}
+.pc-info td:first-child{color:#999;white-space:nowrap;width:46px;font-size:10px;}
+.pc-info td:last-child{font-weight:500;color:#222;}
+.bc-val{font-size:9px;white-space:nowrap;letter-spacing:0px;overflow:hidden;}
+.price-val{color:var(--red)!important;font-size:12px;font-weight:700!important;}
+.color-tag{display:inline-block;background:#f5f5f2;border:1px solid #e5e5e0;border-radius:3px;padding:0 4px;font-size:9px;color:#666;}
+
+.dl-bar{background:var(--sur);border-top:1px solid var(--bdr);padding:10px 20px;display:none;gap:8px;}
+.dl-btn{padding:8px 16px;font-size:12px;font-weight:500;cursor:pointer;border-radius:6px;background:#f0ede8;color:var(--acc);border:1px solid var(--bdr);font-family:var(--font);}
+.dl-btn:hover{background:#e5e0d8;}
+
+@media print{
+  header,.side,.dl-bar{display:none!important;}
+  .app{display:block;height:auto;}
+  .prev-wrap{background:none;padding:0;display:block;}
+  #dm-wrap{box-shadow:none;padding:8px;}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>商品 DM 對照表產生器</h1>
+  <div style="display:flex;gap:8px;">
+    <button class="hbtn hbtn-o dis" id="btn-reset" onclick="resetAll()">↩ 重設</button>
+    <button class="hbtn hbtn-o dis" id="btn-print" onclick="window.print()">🖨 列印</button>
+    <button class="hbtn hbtn-w dis" id="btn-dl" onclick="dlHTML()">↓ 下載 HTML</button>
+  </div>
+</header>
+
+<div class="app">
+<!-- SIDE -->
+<div class="side">
+
+  <div class="card">
+    <div class="card-h"><div class="card-n">1</div><div class="card-t">上傳商品照片</div></div>
+    <div class="card-b">
+      <p class="note">Ctrl 多選，檔名需符合 <b>A欄「照片對比」</b>（如 2620225009綠.jpg）</p>
+      <label class="uz">
+        <i class="ti ti-photo" style="font-size:20px;color:var(--mu);" aria-hidden="true"></i>
+        <div style="font-size:12px;color:var(--mu);margin-top:3px;">點擊選擇圖片</div>
+        <input type="file" multiple accept="image/*" id="photo-inp" style="display:none" onchange="loadPhotos(this)">
+      </label>
+      <div id="photo-st"></div>
+      <div id="photo-dbg" class="dbg"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-n">2</div><div class="card-t">上傳商品資料 Excel</div></div>
+    <div class="card-b">
+      <p class="note">需含欄位：<b>照片對比、商品條碼、商品編號、款號、顏色名稱、尺寸、台幣_售價</b></p>
+      <label class="uz">
+        <i class="ti ti-table" style="font-size:20px;color:var(--mu);" aria-hidden="true"></i>
+        <div style="font-size:12px;color:var(--mu);margin-top:3px;">點擊選擇 .xlsx</div>
+        <input type="file" accept=".xlsx,.xls" id="excel-inp" style="display:none" onchange="loadExcel(this)">
+      </label>
+      <div id="excel-st"></div>
+      <div id="excel-dbg" class="dbg"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-n">3</div><div class="card-t">版面設定</div></div>
+    <div class="card-b">
+      <div><label class="fl">每列欄數</label>
+        <select id="s-cols">
+          <option value="3">3 欄</option>
+          <option value="4" selected>4 欄</option>
+          <option value="5">5 欄</option>
+        </select>
+      </div>
+      <div><label class="fl">顯示售價</label>
+        <select id="s-price"><option value="1">顯示</option><option value="0">隱藏</option></select>
+      </div>
+    </div>
+  </div>
+
+  <button class="gen-btn" id="gen-btn" onclick="gen()" disabled>產生 DM 對照表</button>
+</div>
+
+<!-- PREVIEW -->
+<div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+  <div class="prev-wrap" style="flex:1;">
+    <div id="dm-wrap">
+      <div style="display:flex;align-items:center;justify-content:center;height:300px;color:#aaa;flex-direction:column;gap:10px;">
+        <div style="font-size:36px;">📋</div>
+        <div style="font-size:13px;">請上傳照片與 Excel 後產生對照表</div>
+      </div>
+    </div>
+  </div>
+  <div class="dl-bar" id="dl-bar">
+    <button class="dl-btn" onclick="dlHTML()">↓ 下載 HTML 檔案</button>
+  </div>
+</div>
+</div>
+
+<script>
+let PM={}, PD=[];
+
+// PM stores {key: {url: objectURL, file: File}}
+function loadPhotos(inp){
+  const files=Array.from(inp.files).filter(f=>/\.(jpe?g|png|webp|gif)$/i.test(f.name));
+  if(!files.length){st('photo-st','無圖片','er');return;}
+  // Revoke old object URLs to free memory
+  Object.values(PM).forEach(v=>{ if(v&&v.url) URL.revokeObjectURL(v.url); });
+  PM={};
+  files.forEach(f=>{
+    const k=f.name.replace(/\.[^.]+$/,'');
+    PM[k]={url:URL.createObjectURL(f), file:f};
+  });
+  st('photo-st','✅ 已載入 '+files.length+' 張照片','ok');
+  const keys=Object.keys(PM).slice(0,4);
+  showDbg('photo-dbg','照片檔名(前4筆)：'+keys.join('、'));
+  chk();
+}
+
+function loadExcel(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      PD=data.map(row=>({
+        photoKey: row['照片對比']?String(row['照片對比']).trim():'',
+        barcode:  row['商品條碼']?String(Math.floor(Number(String(row['商品條碼']).trim()))):'',
+        id:       row['商品編號']?String(Math.floor(Number(String(row['商品編號']).trim()))):'',
+        style:    row['款號']?String(row['款號']).trim():'',
+        color:    row['顏色名稱']?String(row['顏色名稱']).trim():'',
+        size:     row['尺寸']?String(row['尺寸']).trim():'',
+        price:    row['台幣_售價']?Number(row['台幣_售價']):0,
+        cat:      row['商品中分類']?String(row['商品中分類']).trim():''
+      })).filter(p=>p.barcode);
+      st('excel-st','✅ 已載入 '+PD.length+' 筆商品','ok');
+      const sampleKeys=PD.slice(0,4).map(p=>p.photoKey);
+      showDbg('excel-dbg','照片對比欄(前4筆)：'+sampleKeys.join('、'));
+      chk();
+    }catch(err){st('excel-st','❌ '+err.message,'er');}
+  };
+  r.readAsArrayBuffer(f);
+}
+
+function st(id,msg,t){document.getElementById(id).innerHTML=`<span class="${t==='ok'?'ok-st':'er-st'}">${msg}</span>`;}
+function showDbg(id,msg){const el=document.getElementById(id);el.style.display='block';el.textContent=msg;}
+function chk(){document.getElementById('gen-btn').disabled=!PD.length;}
+
+function getPM(key){ return PM[key] ? PM[key].url : null; }
+function getImg(p){
+  return getPM(p.photoKey)
+    || getPM(p.id+p.color)
+    || getPM(p.style)
+    || (()=>{ const k=Object.keys(PM).find(k=>k.startsWith(p.id)||k.startsWith(p.style)); return k?PM[k].url:null; })()
+    || '';
+}
+function getImgKey(p){
+  if(PM[p.photoKey]) return p.photoKey;
+  if(PM[p.id+p.color]) return p.id+p.color;
+  if(PM[p.style]) return p.style;
+  return Object.keys(PM).find(k=>k.startsWith(p.id)||k.startsWith(p.style))||'';
+}
+function getImgSource(p){
+  if(PM[p.photoKey]) return '完全符合';
+  if(PM[p.id+p.color]) return '完全符合';
+  if(PM[p.style]) return '款號符合';
+  const k=Object.keys(PM).find(k=>k.startsWith(p.id)||k.startsWith(p.style));
+  return k?'同編號備用('+k+')':'無';
+}
+
+function gen(){
+  if(!PD.length)return;
+  const cols=document.getElementById('s-cols').value;
+  const showPrice=document.getElementById('s-price').value==='1';
+  const matched=PD.filter(p=>!!getImg(p)).length;
+
+  const cards=PD.map((p,i)=>{
+    const src=getImg(p);
+    // photo
+    const imgSrc=getImg(p);
+    const imgSource=getImgSource(p);
+    const fallbackBadge=imgSource.startsWith('同編號')?`<div style="position:absolute;bottom:2px;right:3px;font-size:8px;background:rgba(200,140,0,0.15);color:#8a6200;padding:1px 4px;border-radius:3px;">備用照</div>`:'';
+    const photoHTML=imgSrc
+      ?`<div style="position:relative;width:100%;height:130px;overflow:hidden;"><img src="${imgSrc}" alt="${p.style}" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);max-width:calc(100% - 4px);max-height:126px;width:auto;height:auto;" onerror="this.parentElement.innerHTML=\'<span class=pc-noimg>無圖片</span>\'">${fallbackBadge}</div>`
+      :'<span class="pc-noimg">無圖片</span>';
+
+    // barcode SVG
+    let bcSVG='';
+    try{
+      const ns='http://www.w3.org/2000/svg';
+      const s=document.createElementNS(ns,'svg');
+      JsBarcode(s,p.barcode,{format:'CODE128',width:1.3,height:34,displayValue:false,margin:2});
+      bcSVG=s.outerHTML;
+    }catch(e){}
+
+    const catStr=p.cat?` · ${p.cat}`:'';
+    const priceRow=showPrice&&p.price?`<tr><td>售價</td><td class="price-val">NT$${Number(p.price).toLocaleString()}</td></tr>`:'';
+
+    return `<div class="pc">
+  <div class="pc-photo">${photoHTML}</div>
+  <div class="pc-bc">${bcSVG}</div>
+  <div class="pc-info"><table>
+    <tr><td>條碼</td><td class="bc-val">${p.barcode}</td></tr>
+    <tr><td>商品編號</td><td>${p.id}</td></tr>
+    <tr><td>款號</td><td>${p.style}</td></tr>
+    <tr><td>顏色</td><td><span class="color-tag">${p.color}</span>${catStr}</td></tr>
+    <tr><td>尺寸</td><td>${p.size}</td></tr>
+    ${priceRow}
+  </table></div>
+</div>`;
+  }).join('');
+
+  document.getElementById('dm-wrap').innerHTML=`
+<div class="dm-title">商品 DM 對照表</div>
+<div style="text-align:right;font-size:11px;color:#aaa;margin-bottom:10px;">共 ${PD.length} 筆，已配對照片 ${matched} / ${PD.length}</div>
+<div class="dm-grid dm-cols-${cols}">${cards}</div>`;
+
+  document.getElementById('dl-bar').style.display='flex';
+  ['btn-reset','btn-print','btn-dl'].forEach(id=>document.getElementById(id).classList.remove('dis'));
+}
+
+async function dlHTML(){
+  if(!PD.length)return;
+  const btn=document.getElementById('btn-dl');
+  btn.textContent='壓縮中…'; btn.classList.add('dis');
+  const usedKeys=[...new Set(PD.map(p=>getImgKey(p)).filter(Boolean))];
+  const toConvert=usedKeys.filter(k=>PM[k]&&PM[k].file);
+  const b64map={};
+  // Compress each image: max 400px, JPEG 75%
+  await Promise.all(toConvert.map(async k=>{
+    b64map[k]=await compressImage(PM[k].file, 400, 0.75);
+  }));
+  btn.textContent='↓ 下載 HTML'; btn.classList.remove('dis');
+  finishDl(b64map);
+}
+function finishDl(b64map){
+  // Replace objectURLs with base64 in the HTML
+  let inner=document.getElementById('dm-wrap').innerHTML;
+  if(b64map){ Object.entries(b64map).forEach(([k,b64])=>{ const url=PM[k].url; inner=inner.split(url).join(b64); }); }
+  const inner2=inner;
+  const html=`<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>商品DM對照表</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"><\/script>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;background:#f0ede8;padding:20px;}.dm-title{text-align:center;font-size:18px;font-weight:700;letter-spacing:3px;margin-bottom:16px;}.dm-grid{display:grid;gap:10px;max-width:1200px;margin:0 auto;}.dm-cols-3{grid-template-columns:repeat(3,1fr);}.dm-cols-4{grid-template-columns:repeat(4,1fr);}.dm-cols-5{grid-template-columns:repeat(5,1fr);}.pc{border:1px solid #ddd;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:10px 8px 8px;background:#fff;page-break-inside:avoid;}.pc-photo{width:100%;height:130px;position:relative;background:#fafafa;border-radius:5px;margin-bottom:6px;overflow:hidden;}.pc-photo img{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);max-width:calc(100% - 4px);max-height:126px;width:auto;height:auto;}.pc-noimg{font-size:10px;color:#ccc;}.pc-bc{width:100%;display:flex;justify-content:center;margin-bottom:3px;}.pc-bc svg{max-width:100%;}.pc-info{width:100%;font-size:10px;border-top:1px solid #f0f0f0;padding-top:5px;}.pc-info table{width:100%;border-collapse:collapse;}.pc-info td{padding:1px 2px;vertical-align:top;}.pc-info td:first-child{color:#999;white-space:nowrap;width:46px;}.pc-info td:last-child{font-weight:500;color:#222;}.bc-val{font-size:9px;white-space:nowrap;letter-spacing:0px;overflow:hidden;}.price-val{color:#c0392b!important;font-size:12px;font-weight:700!important;}.color-tag{display:inline-block;background:#f5f5f2;border:1px solid #e5e5e0;border-radius:3px;padding:0 4px;font-size:9px;color:#666;}@media print{body{background:#fff;padding:8px;}.bc-val{font-size:7px !important;white-space:nowrap !important;letter-spacing:-0.3px !important;}}</style>
+</head><body>${inner}</body></html>`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
+  a.download='商品DM對照表.html';a.click();
+}
+
+function resetAll(){
+  PM={};PD=[];
+  ['photo-inp','excel-inp'].forEach(id=>document.getElementById(id).value='');
+  ['photo-st','excel-st'].forEach(id=>document.getElementById(id).innerHTML='');
+  ['photo-dbg','excel-dbg'].forEach(id=>{document.getElementById(id).style.display='none';});
+  document.getElementById('dm-wrap').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:300px;color:#aaa;flex-direction:column;gap:10px;"><div style="font-size:36px;">📋</div><div style="font-size:13px;">請上傳照片與 Excel 後產生對照表</div></div>';
+  document.getElementById('dl-bar').style.display='none';
+  document.getElementById('gen-btn').disabled=true;
+  ['btn-reset','btn-print','btn-dl'].forEach(id=>document.getElementById(id).classList.add('dis'));
+}
+</script>
+</body>
+</html>
