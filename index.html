@@ -277,21 +277,25 @@ function gen(){
 async function dlHTML(){
   if(!PD.length)return;
   const btn=document.getElementById('btn-dl');
-  btn.textContent='壓縮中…'; btn.classList.add('dis');
+  btn.classList.add('dis');
   const usedKeys=[...new Set(PD.map(p=>getImgKey(p)).filter(Boolean))];
   const toConvert=usedKeys.filter(k=>PM[k]&&PM[k].file);
   const b64map={};
-  // Compress each image: max 400px, JPEG 75%
-  await Promise.all(toConvert.map(async k=>{
-    b64map[k]=await compressImage(PM[k].file, 400, 0.75);
-  }));
-  btn.textContent='↓ 下載 HTML'; btn.classList.remove('dis');
+  const total=toConvert.length;
+  for(let i=0;i<toConvert.length;i++){
+    btn.textContent=`讀取中 ${i+1}/${total}`;
+    const k=toConvert[i];
+    const r=await readFileB64(PM[k].file);
+    if(r) b64map[k]=r;
+  }
+  btn.textContent='↓ 下載 HTML';
+  btn.classList.remove('dis');
   finishDl(b64map);
 }
 function finishDl(b64map){
   // Replace objectURLs with base64 in the HTML
   let inner=document.getElementById('dm-wrap').innerHTML;
-  if(b64map){ Object.entries(b64map).forEach(([k,b64])=>{ const url=PM[k].url; inner=inner.split(url).join(b64); }); }
+  if(b64map){ Object.entries(b64map).forEach(([k,b64])=>{ if(b64&&PM[k]){ const url=PM[k].url; inner=inner.split(url).join(b64); } }); }
   const inner2=inner;
   const html=`<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>商品DM對照表</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"><\/script>
